@@ -406,7 +406,7 @@ def _make_source(sid: str) -> BaseSource:
 # ─── API key helper ───────────────────────────────────────────────────────────
 
 def _get_api_key() -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    key = os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
     if key:
         return key
     for env_path in [
@@ -417,7 +417,7 @@ def _get_api_key() -> str:
             with open(env_path) as f:
                 for line in f:
                     line = line.strip()
-                    if line.startswith("ANTHROPIC_API_KEY="):
+                    if line.startswith("ANTHROPIC_AUTH_TOKEN="):
                         return line.split("=", 1)[1].strip().strip('"').strip("'")
     return ""
 
@@ -452,7 +452,7 @@ def summarize_stories(stories: list[Story], source: BaseSource) -> None:
     """Fill story.summary in-place via Claude API."""
     api_key = _get_api_key()
     if not api_key:
-        print(f"  [warn] ANTHROPIC_API_KEY 未设置，跳过 AI 总结", file=sys.stderr)
+        print(f"  [warn] ANTHROPIC_AUTH_TOKEN 未设置，跳过 AI 总结", file=sys.stderr)
         return
 
     import anthropic
