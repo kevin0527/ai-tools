@@ -10,7 +10,7 @@
 
 ### 功能
 
-- 支持 5 个新闻源：Hacker News、BBC News、Reddit、微博热搜、GitHub Trending
+- 支持 6 个新闻源：Hacker News、BBC News、Reddit、微博热搜、GitHub Trending、财经新闻
 - 自动抓取原文正文（readability 提取）
 - 使用 Claude Haiku 生成中文摘要
 - 多线程并发抓取与总结
@@ -62,6 +62,7 @@ python3 news_digest.py <source> [source ...] [-d DAYS] [--max N] [-o FILE]
 | `reddit[:sub]` | Reddit 热帖 | `reddit:worldnews`（默认）/ `reddit:technology` / `reddit:science` |
 | `weibo` | 微博热搜实时榜 | — |
 | `github[:lang]` | GitHub Trending | `github:python` / `github:typescript` / `github:rust` |
+| `finance[:cat]` | 财经新闻 | `finance:all`（默认）/ `finance:crypto` / `finance:gold` / `finance:stock` |
 
 ### 示例
 
@@ -80,6 +81,9 @@ python3 news_digest.py hn bbc reddit weibo github -d 1 --max 15
 
 # 只看标题，跳过抓取和摘要（速度最快）
 python3 news_digest.py hn weibo --no-fetch --no-summary
+
+# 财经三合一：加密货币 + 黄金 + 美股
+python3 news_digest.py finance:crypto finance:gold finance:stock -d 1 --max 15
 ```
 
 ### 输出示例
