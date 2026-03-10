@@ -2,7 +2,7 @@
 """
 Multi-source News Digest Generator
 
-Supported sources: hn, bbc, reddit, weibo, github
+Supported sources: hn, bbc, reddit, weibo, github, finance
 New sources can be added by subclassing BaseSource.
 
 Usage:
@@ -19,6 +19,7 @@ Source options (append with colon):
     bbc:top / bbc:world / bbc:tech / bbc:sci / bbc:biz
     reddit:worldnews / reddit:technology / reddit:science / ...
     github:<language>  e.g. github:python / github:typescript / github:rust
+    finance:<category> e.g. finance / finance:crypto / finance:gold / finance:stock
 """
 
 import sys, os, re, json, time, datetime, argparse, webbrowser
@@ -383,6 +384,80 @@ class GitHubSource(BaseSource):
         )
 
 
+class FinanceSource(BaseSource):
+    id    = "finance"
+    color = "#0f9d58"
+    icon  = "💹"
+
+    FEEDS = {
+        "all":    ("Finance News",       "https://finance.yahoo.com/rss/topstories"),
+        "crypto": ("Crypto News",        "https://cointelegraph.com/rss"),
+        "gold":   ("Gold & Commodities", "https://www.investing.com/rss/news_14.rss"),
+        "stock":  ("Stock Market",       "https://feeds.marketwatch.com/marketwatch/topstories/"),
+    }
+
+    def __init__(self, category: str = "all"):
+        self._category = category
+        self._display_name, self._feed_url = self.FEEDS.get(category, self.FEEDS["all"])
+
+    @property
+    def name(self) -> str:
+        return self._display_name
+
+    def fetch(self, days: int, max_stories: int) -> list[Story]:
+        since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+        resp = requests.get(self._feed_url,
+                            headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        stories = []
+        for item in root.findall(".//item"):
+            title   = _xml_text(item, "title")
+            link    = _xml_text(item, "link")
+            pub_raw = _xml_text(item, "pubDate")
+            desc    = re.sub(r"<[^>]+>", "", _xml_text(item, "description"))
+            try:
+                pub_dt = parsedate_to_datetime(pub_raw).astimezone(datetime.timezone.utc)
+            except Exception:
+                pub_dt = since  # include if unparseable
+            if pub_dt < since:
+                continue
+            stories.append(Story(
+                title       = title,
+                url         = link,
+                source      = self.id,
+                created_at  = int(pub_dt.timestamp()),
+                description = desc,
+            ))
+        stories.sort(key=lambda s: s.created_at, reverse=True)
+        return stories[:max_stories]
+
+    def summary_hint(self) -> str:
+        hints = {
+            "crypto": (
+                "这是一篇关于加密货币/虚拟币市场的最新新闻。"
+                "请用中文简要总结核心内容、涉及币种及市场影响（2-3句话）。"
+                "只输出总结，不要任何前缀或说明。"
+            ),
+            "gold": (
+                "这是一篇关于黄金或大宗商品市场的最新新闻。"
+                "请用中文简要总结核心内容、价格走势及影响因素（2-3句话）。"
+                "只输出总结，不要任何前缀或说明。"
+            ),
+            "stock": (
+                "这是一篇关于股票市场的最新新闻。"
+                "请用中文简要总结核心内容、涉及股票/指数及市场影响（2-3句话）。"
+                "只输出总结，不要任何前缀或说明。"
+            ),
+            "all": (
+                "这是一篇综合财经新闻。"
+                "请用中文简要总结核心内容和市场影响（2-3句话）。"
+                "只输出总结，不要任何前缀或说明。"
+            ),
+        }
+        return hints.get(self._category, hints["all"])
+
+
 # ─── Registry ─────────────────────────────────────────────────────────────────
 
 def _make_source(sid: str) -> BaseSource:
@@ -400,7 +475,9 @@ def _make_source(sid: str) -> BaseSource:
         return WeiboSource()
     if name == "github":
         return GitHubSource(arg or "")
-    raise ValueError(f"Unknown source: '{name}'. Available: hn, bbc, reddit, weibo, github")
+    if name == "finance":
+        return FinanceSource(arg or "all")
+    raise ValueError(f"Unknown source: '{name}'. Available: hn, bbc, reddit, weibo, github, finance")
 
 
 # ─── API key helper ───────────────────────────────────────────────────────────
@@ -693,7 +770,7 @@ def run_source(src: BaseSource, days: int, max_stories: int,
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
-AVAILABLE = ["hn", "bbc", "reddit", "weibo"]
+AVAILABLE = ["hn", "bbc", "reddit", "weibo", "finance"]
 
 
 def main():
@@ -707,6 +784,7 @@ def main():
             "  reddit[:sub]     Reddit    (sub: worldnews*/technology/science/…)\n"
             "  weibo            微博热搜\n"
             "  github[:lang]    GitHub Trending  (lang: python/typescript/rust/…)\n"
+            "  finance[:cat]    Finance News     (cat: all*/crypto/gold/stock)\n"
         ),
     )
     p.add_argument("sources", nargs="+", metavar="SOURCE",
