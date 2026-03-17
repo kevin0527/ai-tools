@@ -794,14 +794,14 @@ def main():
     p.add_argument("--max", type=int, default=20,
                    help="Max stories per source (default: 20)")
     p.add_argument("-o", "--output", default="",
-                   help="Output HTML file (default: news_digest_YYYY-MM-DD.html)")
+                   help="Output HTML file (default: news_digest_YYYY-MM-DD_HH-MM-SS.html)")
     p.add_argument("--no-fetch",   action="store_true", help="Skip article fetching")
     p.add_argument("--no-summary", action="store_true", help="Skip AI summarization")
     args = p.parse_args()
 
     days        = max(1, args.days)
     source_ids  = args.sources
-    output_file = args.output or f"/tmp/news_digest_{datetime.date.today()}.html"
+    output_file = args.output or f"/tmp/news_digest_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.html"
 
     sources = []
     for sid in source_ids:
